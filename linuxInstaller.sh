@@ -36,7 +36,6 @@ logo()
     echo -e "${GRAY_DARK} #################################${NC}"
 }
 
-
 check_zenity()
 {
 	if ! command -v zenity &> /dev/null; then
@@ -61,7 +60,6 @@ check_zenity()
         esac
     fi
 }
-
 
 updater()
 {
@@ -116,7 +114,6 @@ EOF
 
     sudo ./update.sh
 }
-
 
 installApps()
 {
@@ -212,7 +209,6 @@ installApps()
     sudo apt install -y $apps_to_install
 }
 
-
 removeApps()
 {	
 	echo -e "${CYAN}Generating list of installed applications... This may take a moment.${NC}"
@@ -269,7 +265,6 @@ removeApps()
 		zenity --info --title="Uninstallation Cancelled" --text="Uninstallation aborted by user confirmation."
 	fi
 }
-
 
 services()
 {
@@ -347,7 +342,6 @@ services()
 	fi
 }
 
-
 configureBashrc()
 {
 	# Declare options as "ID|Label|FunctionName"
@@ -386,7 +380,6 @@ configureBashrc()
         done
     done
 }
-
 
 configureSSH()
 {
@@ -445,7 +438,6 @@ configureSSH()
         zenity --warning --title="Key Copy Warning" --text="Key copy failed (check terminal output for errors). You may need to manually run ssh-copy-id."
     fi
 }
-
 
 configureNetShare()
 {
@@ -544,7 +536,6 @@ configureNetShare()
         zenity --info --title="Setup Complete" --text="The mount point and credentials were created, but the fstab entry was skipped. The setup is incomplete."
     fi
 }
-
 
 configureAlias()
 {
@@ -678,165 +669,131 @@ EOF
 	zenity --info --text="Success! Settings appended to ~/.bashrc."
 }
 
-
 pcInfo ()
 {
-    echo -e "$BANNER"
-    echo -e "$BANNER"
-    echo -e "$BANNER"
-    ##################SysInfo
-    echo -e "${CYAN}Getting System Info${NC}"
-    BANNER2="######################################################"
-    ###########################
+	SERVER_NAME=$(zenity --entry \
+        --title="Server Identification" \
+        --text="Enter the System Name:" \
+        --width=400)
+    
+    [ -z "$SERVER_NAME" ] && return 1 
 
-    #Sever Identity
-    echo -e "$BANNER"
-    echo -e "${BLUE}System name: ${NC}"
-    read name
+    PASS=$(zenity --password \
+        --title="Permission Required" \
+        --text="Enter your user password (sudo) to access hardware serials:")
+    echo "$PASS" | sudo -S -v &> /dev/null
+    
+    if [ $? -ne 0 ]; then
+        zenity --error --text="Incorrect password or user does not have sudo privileges." --width=300
+        return 1
+    fi
 
-    ###########################
+    LOGFILE="$HOME/SYSinfo-$SERVER_NAME.txt"
+    rm -f "$LOGFILE"
 
-    #Preparation
+    (
+    echo "10" ; echo "# Starting data collection..." ; sleep 1
+    {
+        echo "######################################################"
+        echo "SYSTEM REPORT: $SERVER_NAME"
+        echo "Date: $(date)"
+        echo "######################################################"
+        echo ""
 
-    rm ~/SYSinfo-$name.txt
-    touch ~/SYSinfo-$name.txt
-    echo -e "$BANNER"
+        echo "--- OPERATING SYSTEM ---"
+        if [ -f /etc/os-release ]; then
+            . /etc/os-release
+            echo "Distro:  $(echo "$NAME $VERSION" | tr '[:lower:]' '[:upper:]')"
+        else
+            echo "Distro:  Unknown"
+        fi
+        echo "Kernel:  $(uname -r)"
+        echo ""
 
-    ###########################
+        echo "--- IDENTITY ---"
+        echo "Server Name: $SERVER_NAME"
+        echo -n "System Serial: "
+        echo "$PASS" | sudo -S dmidecode -t system | grep "Serial Number" | awk -F: '{print $2}'
+        echo ""
 
-    #Identification
-    echo "$BANNER2"  >> SYSinfo-$name.txt
-    echo "Server $name"  >> SYSinfo-$name.txt
-    echo "Server Serian Number: " >> SYSinfo-$name.txt
-    sudo dmidecode -t system | grep Serial >> SYSinfo-$name.txt
-    echo -e "$BANNER"
-    echo -e "$BANNER"
-    echo -e "${BLUE}Server $name${NC}"
-    echo -e "${BLUE}Server Serial Number: ${NC}"
-    sudo dmidecode -t system | grep Serial
+		echo "--- CPU SOCKETS ---"
+		echo "Number os Sockets: "
+		LC_ALL=C lscpu | grep "Socket(s):" | awk '{print $2}'
+		echo ""
 
+        echo "--- PROCESSOR (CPU) ---"
+        echo -n "Model: "
+        grep "model name" /proc/cpuinfo | head -n1 | awk -F: '{print $2}'
+        echo -n "Cores: "
+        nproc --all
 
-    ###########################
+		sudo dmidecode -t processor | grep "Core Count"
+		sudo dmidecode -t processor | grep "Thread Count"
+		sudo dmidecode -t processor | grep "Max Speed"
+		echo ""
 
-    echo "$BANNER2"  >> SYSinfo-$name.txt
-    echo -e "$BANNER"
-    echo -e "${GREEN_LIGHT}PROCESSOR${NC}"
+        echo "--- MEMORY (RAM) DETAIL ---"
+        echo "Total RAM: $(free -h --giga | grep Mem | awk '{print $2}')"
+		STICK_COUNT=$(echo "$PASS" | sudo -S dmidecode -t memory | grep "Size:" | grep -v "No Module" | wc -l)
+        echo "Modules Count:  $STICK_COUNT sticks installed"
+        echo ""
+        echo " \`-->INDIVIDUAL MODULES INFO:"   
+        echo "$PASS" | sudo -S dmidecode -t memory | awk '
+        BEGIN { RS="\n\n"; FS="\n" }
+        /Memory Device/ && /Size:/ && !/No Module/ {
+           for (i=1; i<=NF; i++) {
+                if ($i ~ /^[ \t]*Size:/)                print $i
+                if ($i ~ /Bank Locator:/)               print $i
+                if ($i ~ /^[ \t]*Type:/)                print $i
+                if ($i ~ /^[ \t]*Speed:/)               print $i
+                if ($i ~ /Manufacturer:/)               print $i
+                if ($i ~ /Serial Number:/)              print $i
+            }
+        }
+        ' | sed 's/^[ \t]*//'
+        echo ""
 
-    #Sockets Number
-    echo "Number os Sockets" >> SYSinfo-$name.txt
-    lscpu | grep "«Socket(s)»" >> SYSinfo-$name.txt
-    echo "Number os Sockets"
-    lscpu | grep "«Socket(s)»"
+        echo "--- DISKS (SERIALS & MODELS) ---"
+        lsblk -d -o NAME,TYPE,SIZE,MODEL,SERIAL
+        echo ""
 
-    echo "" >> SYSinfo-$name.txt
-    echo ""
+        echo "--- NETWORK INTERFACES (MAC) ---"
+        ip -brief link show | awk '{printf "%-15s %-20s %s\n", $1, $3, $2}'
+        echo ""
 
-    #Processor Model
-    echo "CPU Model/Name: " >> SYSinfo-$name.txt
-    sudo dmidecode -t processor | grep "Version" >> SYSinfo-$name.txt
-    echo "CPU Model/Name: "
-    sudo dmidecode -t processor | grep "Version"
+        echo "--- WIRELESS & BLUETOOTH ---"
+        echo "[WiFi Chip Model]"
+        lspci | grep -i -E "Network|Wireless|Wi-Fi" || echo "No PCI WiFi found."
+        
+        echo ""
+        echo "[Bluetooth Model]"
+        lsusb | grep -i -E "Blue|Bluetooth" || echo "No USB Bluetooth found."
+        echo ""
 
-    #Other Methods
-    #cat /proc/cpuinfo | grep "model name"
+        echo "--- IP ADDRESSES ---"
+        hostname -I
+        echo ""
+        
+        echo "######################################################"
+        echo "END OF REPORT"
 
-    echo "" >> SYSinfo-$name.txt
-    echo ""
+    } > "$LOGFILE"
+    echo "90" ; echo "# Finalizing report..." ; sleep 1
+    echo "100"
 
-    #Processor Speed
-    echo "CPU Speed " >> SYSinfo-$name.txt
-    echo -e "Current Speed: " >> SYSinfo-$name.txt
-    sudo dmidecode -t processor | grep "Current Speed" >> SYSinfo-$name.txt
-    echo "MAX Speed: " >> SYSinfo-$name.txt
-    sudo dmidecode -t processor | grep "Max Speed" >> SYSinfo-$name.txt
+    ) | zenity --progress \
+        --title="Processing" \
+        --text="Reading hardware serial numbers..." \
+        --percentage=0 \
+        --auto-close \
+        --width=400
 
-    echo -e "${PURPLE}CPU Speed ${NC}"
-    echo -e "${YELLOW}Current Speed: ${NC}"
-    sudo dmidecode -t processor | grep "Current Speed"
-    echo -e "${YELLOW}MAX Speed: ${NC}"
-    sudo dmidecode -t processor | grep "Max Speed"
-
-    echo "" >> SYSinfo-$name.txt
-    echo ""
-
-    #Processor Cores
-    echo "CPU Cores " >> SYSinfo-$name.txt
-    echo "Cores Count: " >> SYSinfo-$name.txt
-    sudo dmidecode -t processor | grep "Core Count" >> SYSinfo-$name.txt
-    echo "Thread Count: " >> SYSinfo-$name.txt
-    sudo dmidecode -t processor | grep "Thread Count" >> SYSinfo-$name.txt
-
-    echo -e "${PURPLE}CPU Cores ${NC}"
-    echo -e "${YELLOW}Cores Count: ${NC}"
-    sudo dmidecode -t processor | grep "Core Count"
-    echo -e "${YELLOW}Thread Count: ${NC}"
-    sudo dmidecode -t processor | grep "Thread Count"
-
-    #Other methods
-    #cat /proc/cpuinfo | grep "cpu cores"
-    #nproc
-    #lscpu | grep "CPU(s):"
-
-    ###########################
-
-    echo "$BANNER2"  >> SYSinfo-$name.txt
-    echo "RAM" >> SYSinfo-$name.txt
-    cat /proc/meminfo | grep MemTotal >> SYSinfo-$name.txt
-
-    echo -e "$BANNER"
-    echo -e "${GREEN_LIGHT}RAM${NC}"
-    cat /proc/meminfo | grep MemTotal
-
-    #Prototipo para transformar Mb to Gb
-    #touch tmp.txt
-    #free -h --giga -t | grep Total > tmp.txt
-    #sed 's/G/G\n/' tmp.txt >> SYSinfo-$name.txt
-    #rm tmp.txt
-
-    #Other methods
-    #free -h --giga -t | grep Total
-
-    ###########################
-
-    echo "$BANNER2"  >> SYSinfo-$name.txt
-    echo "NETWORK" >> SYSinfo-$name.txt
-    echo "Wifi: " >> SYSinfo-$name.txt
-    lspci | grep Network >> SYSinfo-$name.txt
-    echo "Ethernet: " >> SYSinfo-$name.txt
-    lspci | grep Ethernet >> SYSinfo-$name.txt
-
-
-    echo -e "$BANNER"
-    echo -e "${GREEN_LIGHT}NETWORK${NC}"
-    echo -e "${PURPLE}Wifi: ${NC}"
-    lspci | grep Network
-    echo -e "${PURPLE}Ethernet: ${NC}"
-    lspci | grep Ethernet
-
-    ###########################
-
-    echo "$BANNER2"  >> SYSinfo-$name.txt
-    echo "DISKS" >> SYSinfo-$name.txt
-    lsblk >> SYSinfo-$name.txt
-
-    echo -e "$BANNER"
-    echo -e "${GREEN_LIGHT}DISKS${NC}"
-    lsblk
-
-    ###########################
-
-    echo -e "$BANNER"  >> SYSinfo-$name.txt
-    echo -e "$BANNER"
-    echo -e "${RED}INFO EXPORTED TO SYSinfo-$name.txt${NC}"
-    echo -e "$BANNER"
-
-    ###########################
-
-    echo -e "$BANNER"
-    echo -e "$BANNER"
-    echo -e "$BANNER"
+    zenity --text-info \
+           --title="System Info: $SERVER_NAME" \
+           --filename="$LOGFILE" \
+           --width=750 --height=800 \
+           --font="Monospace 10"
 }
-
 
 cleaner ()
 {
@@ -850,20 +807,18 @@ cleaner ()
     echo -e "$BANNER"
 }
 
-
-runall()
+grubCustom()
 {
-	updater
-	installApps
-	removeApps
-	services
-	configureSSH
-	configureNetShare
-	configureAlias
-	cleaner
-	pcInfo
+	if zenity --question --title="Grub Customizer" --text="Are you sure you want to customize your grub?" --width=500 --height=100; then
+		zenity --info --title="Credits" --text="This script was created by CrisTitusTech -> https://www.youtube.com/@ChrisTitusTech." --width=500 --height=100
+		cd ~/Downloads
+		git clone https://github.com/ChrisTitusTech/Top-5-Bootloader-Themes
+		cd Top-5-Bootloader-Themes
+		sudo ./install.sh
+	else
+		:
+	fi
 }
-
 
 menu()
 {
@@ -875,8 +830,8 @@ menu()
         "3|Apps UNinstaller|removeApps"
         "4|Stop System Services|services"
         "5|Configure Terminal|configureBashrc"
-        "6|Get PC Info|pcInfo"
-        "7|DO IT ALL|runall"
+        "6|Customize Grub|grubCustom"
+        "7|Get PC Info|pcInfo"
         "0|Exit|"
     )
 
@@ -913,6 +868,5 @@ menu()
 
 logo
 menu
-
-#falta melhorar pcInfo
+sudo -k
 
