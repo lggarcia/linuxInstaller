@@ -42,4 +42,4 @@ Because this tool performs critical system-level modifications (networking, fire
 *Did you find a bug or successfully test it on a specific distro? Feel free to open an issue or submit a Pull Request!*
 
 ```sh
-curl -sL https://raw.githubusercontent.com/SeuUsuario/linuxMaster/main/install.sh | sudo sh
+curl -sL https://raw.githubusercontent.com/lggarcia/linuxInstaller/main/install.sh | sudo sh

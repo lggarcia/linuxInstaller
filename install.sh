@@ -11,7 +11,7 @@
 #           INSTALLER              #
 ####################################
 
-REPO_URL="https://github.com/SeuUsuario/linuxMaster.git"
+REPO_URL="https://github.com/lggarcia/linuxInstaller.git"
 DEST_DIR="/opt/linuxMaster"
 BIN_LINK="/usr/local/bin/linuxmaster"
 
