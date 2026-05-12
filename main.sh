@@ -48,7 +48,19 @@ printf "\n"
 # LINUX MASTER ASSISTANT - ENTRY POINT
 # =========================================================
 
-PROJECT_ROOT=$(cd "$(dirname "$0")" && pwd)
+PRG="$0"
+while [ -h "$PRG" ]; do
+    ls=$(ls -ld "$PRG")
+    link=$(expr "$ls" : '.*-> \(.*\)$')
+    if expr "$link" : '/.*' > /dev/null; then
+        PRG="$link"
+    else
+        PRG=$(dirname "$PRG")/"$link"
+    fi
+done
+PROJECT_ROOT=$(cd "$(dirname "$PRG")" && pwd)
+
+#PROJECT_ROOT=$(cd "$(dirname "$0")" && pwd)
 export PROJECT_ROOT
 
 #shellcheck disable=SC1091
