@@ -55,35 +55,26 @@ manage_cron()
                 ;;
 
             3)
-                RAW_CRON=$(crontab -u "$REAL_USER" -l 2>/dev/null)
-                if [ -z "$RAW_CRON" ]; then
-                    zenity --info --text="Crontab is already empty." 2>/dev/null
-                    continue
-                fi
+		CRON_LIST=$(crontab -u "$REAL_USER" -l 2>/dev/null | grep -v "^#" | grep -v "^$")
 
-                TEMP_SELECT="/tmp/cron_select.txt"
-                echo "$RAW_CRON" | awk '{print "FALSE", NR, $0}' > "$TEMP_SELECT"
+		if [ -z "$CRON_LIST" ]; then
+        	    zenity --warning --title="Crontab Vazio" \
+            	    --text="Nenhuma tarefa agendada encontrada para o usuário $REAL_USER." 2>/dev/null
+	            return 0
+    		fi
 
-                SELECTED_IDS=$(zenity --list --checklist \
-                    --title="Remove Tasks" \
-                    --text="Select the tasks you want to REMOVE:" \
-                    --column="Select" --column="Line" --column="Task Detail" \
-                    --hide-column=2 \
-                    --width=700 --height=450 \
-                    --separator="|" \
-                    --file-column=1 $(cat "$TEMP_SELECT") 2>/dev/null)
+		TASK_TO_REMOVE=$(echo "$CRON_LIST" | zenity --list \
+        	    --title="Remover Tarefa Cron" \
+	            --text="Selecione a tarefa exata que deseja remover:" \
+	            --column="Comandos Agendados" --width=700 --height=300 2>/dev/null)
 
-                rm -f "$TEMP_SELECT"
+    	       if [ -n "$TASK_TO_REMOVE" ]; then
+	           crontab -u "$REAL_USER" -l 2>/dev/null | grep -F -v "$TASK_TO_REMOVE" | crontab -u "$REAL_USER" -
 
-                if [ -n "$SELECTED_IDS" ]; then
-                    zenity --question --text="Are you sure you want to delete the selected tasks?" 2>/dev/null
-                    if [ $? -eq 0 ]; then
-                        echo "$RAW_CRON" | awk -v ids="|$SELECTED_IDS|" '!(index(ids, "|"NR"|"))' | crontab -u "$REAL_USER" -
-                        print_success "Selected tasks removed."
-                    fi
-                fi
-                ;;
-
+	           print_success "Tarefa removida."
+	           zenity --info --title="Sucesso" --text="A tarefa foi removida do crontab." 2>/dev/null
+    		fi
+		;;
             4)
                 zenity --question --text="Are you sure you want to WIPE ALL tasks for $REAL_USER?" 2>/dev/null
                 if [ $? -eq 0 ]; then

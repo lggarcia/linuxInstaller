@@ -13,83 +13,93 @@
 
 manage_services()
 {
-    print_info "Generating a clean list of active system services..."
+    ACTION=$(zenity --list --title="Service Manager" \
+        --text="Select the desired operation:" \
+        --column="ID" --column="Action" --hide-column=1 \
+        "1" "Stop and Disable (Active Services)" \
+        "2" "Start and Enable (Disabled Services)" \
+        "3" "Restart (Active Services)" 2>/dev/null)
 
-    #Filtered only for services that are loaded and active/running to avoid clutter
+    [ -z "$ACTION" ] && return 0
+
+    print_info "Generating service list..."
     TEMP_SVC_LIST="/tmp/systemd_services_list.txt"
     > "$TEMP_SVC_LIST"
 
-    systemctl list-units --type=service --state=active --no-pager --no-legend 2>/dev/null | \
-        awk '{print $1}' | grep '\.service$' | sed 's/\.service$//' | \
-        while read -r svc; do
-            printf "FALSE %s " "$svc" >> "$TEMP_SVC_LIST"
-        done
+    if [ "$ACTION" = "1" ] || [ "$ACTION" = "3" ]; then
+        systemctl list-units --type=service --state=active --no-pager --no-legend 2>/dev/null | \
+            awk '{print $1}' | grep '\.service$' | sed 's/\.service$//' | \
+            while read -r svc; do printf "FALSE %s " "$svc" >> "$TEMP_SVC_LIST"; done
+    elif [ "$ACTION" = "2" ]; then
+        systemctl list-unit-files --type=service --state=disabled --no-pager --no-legend 2>/dev/null | \
+            awk '{print $1}' | grep '\.service$' | sed 's/\.service$//' | \
+            while read -r svc; do printf "FALSE %s " "$svc" >> "$TEMP_SVC_LIST"; done
+    fi
 
     SERVICE_LIST=$(cat "$TEMP_SVC_LIST")
     rm -f "$TEMP_SVC_LIST"
 
     if [ -z "$SERVICE_LIST" ]; then
-        zenity --error --title="Service Manager Error" \
-            --text="Failed to retrieve the list of active services or the list is empty." 2>/dev/null
+        zenity --error --title="Service Manager" --text="No services found for this operation." 2>/dev/null
         return 1
     fi
 
-    # Display the checklist menu
     SELECTED_SERVICES=$(zenity --list \
         --title="Service Manager" \
-        --text="Select the services you wish to immediately STOP and DISABLE from starting on boot.\n\n<span color='red'><b>WARNING:</b> Disabling critical services may break your system.</span>" \
-        --checklist \
-        --width=600 --height=550 \
-        --separator='|' \
+        --text="Select the services from the list below:" \
+        --checklist --width=600 --height=550 --separator='|' \
         --column="Select" --column="Service Name" \
         $SERVICE_LIST 2>/dev/null)
 
-    if [ -z "$SELECTED_SERVICES" ]; then
-        print_info "Service management cancelled."
-        return 0
-    fi
-
-    zenity --question --title="Confirm Action" \
-        --text="You are about to STOP and permanently DISABLE the selected services.\n\nDo you wish to proceed?" 2>/dev/null
-
-    if [ $? -ne 0 ]; then
-        print_info "Operation aborted by user."
-        return 0
-    fi
-
-    print_info "Processing selected services..."
+    [ -z "$SELECTED_SERVICES" ] && { print_info "Operation cancelled."; return 0; }
 
     FAIL_COUNT=0
     SUCCESS_COUNT=0
 
-    echo "$SELECTED_SERVICES" | tr '|' '\n' | while read -r SERVICE; do
+    # Solução do Subshell Trap: Usar IFS e for loop em vez de pipe para while
+    OLD_IFS="$IFS"
+    IFS='|'
+
+    for SERVICE in $SELECTED_SERVICES; do
+        IFS="$OLD_IFS" # Restaura o IFS dentro do loop para não quebrar outros comandos
+
         CLEAN_SERVICE=$(echo "$SERVICE" | sed 's/"//g')
+        [ -z "$CLEAN_SERVICE" ] && { IFS='|'; continue; }
 
-        [ -z "$CLEAN_SERVICE" ] && continue
+        case "$ACTION" in
+            1)
+                print_info "Stopping and disabling $CLEAN_SERVICE..."
+                systemctl stop "$CLEAN_SERVICE" 2>/dev/null && systemctl disable "$CLEAN_SERVICE" 2>/dev/null
+                STATUS=$?
+                ;;
+            2)
+                print_info "Enabling and starting $CLEAN_SERVICE..."
+                systemctl enable "$CLEAN_SERVICE" 2>/dev/null && systemctl start "$CLEAN_SERVICE" 2>/dev/null
+                STATUS=$?
+                ;;
+            3)
+                print_info "Restarting $CLEAN_SERVICE..."
+                systemctl restart "$CLEAN_SERVICE" 2>/dev/null
+                STATUS=$?
+                ;;
+        esac
 
-        print_info "Attempting to stop $CLEAN_SERVICE..."
-        if systemctl stop "$CLEAN_SERVICE" 2>/dev/null; then
-            print_success "$CLEAN_SERVICE stopped."
-        else
-            print_error "Failed to stop $CLEAN_SERVICE."
-            FAIL_COUNT=$((FAIL_COUNT + 1))
-        fi
-
-        print_info "Attempting to disable $CLEAN_SERVICE..."
-        if systemctl disable "$CLEAN_SERVICE" 2>/dev/null; then
-            print_success "$CLEAN_SERVICE disabled."
+        if [ "$STATUS" -eq 0 ]; then
+            print_success "$CLEAN_SERVICE processed successfully."
             SUCCESS_COUNT=$((SUCCESS_COUNT + 1))
         else
-            print_error "Failed to disable $CLEAN_SERVICE."
+            print_error "Failed to process $CLEAN_SERVICE."
             FAIL_COUNT=$((FAIL_COUNT + 1))
         fi
+
+        IFS='|' # Configura o IFS de volta para continuar o loop
     done
+    IFS="$OLD_IFS" # Restaura o IFS permanentemente ao final
 
     if [ "$FAIL_COUNT" -eq 0 ]; then
-        zenity --info --title="Operation Complete" \
-            --text="Successfully STOPPED and DISABLED all selected services.\n\nTotal affected: $SUCCESS_COUNT" 2>/dev/null
+        zenity --info --title="Operation Complete" --text="All services processed successfully!\n\nTotal affected: $SUCCESS_COUNT" 2>/dev/null
     else
-        zenity --warning --title="Completed with Errors" \
-            --text="Service management finished, but some operations failed.\n\nSuccesses: $SUCCESS_COUNT\nFailures: $FAIL_COUNT\n\nCheck the terminal output for details." 2>/dev/null
+        zenity --warning --title="Completed with Errors" --text="Some service operations failed.\n\nSuccesses: $SUCCESS_COUNT\nFailures: $FAIL_COUNT" 2>/dev/null
     fi
 }
+

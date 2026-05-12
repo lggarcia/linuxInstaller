@@ -11,25 +11,52 @@
 #MODULE: APPS INSTALLER packages.sh#
 ####################################
 
-run_updater()
+run_updater() 
 {
-    zenity --question \
-        --title="System Update" \
-        --text="Do you want to run a full system update now?\n\nIf you have already updated the system recently, you can safely skip this step." \
-        --width=400 2>/dev/null
-
-    if [ $? -ne 0 ]; then
-        print_info "System update skipped by user."
-        return 0
+    zenity --question --title="Update Now" \
+        --text="Would you like install system updates immediately?" --width=400 2>/dev/null
+    if [ $? -eq 0 ]; then
+        print_info "Updating system..."
+        if command -v apt-get >/dev/null; then
+            apt-get update && apt-get upgrade -y
+        elif command -v dnf >/dev/null; then
+            dnf update -y
+        elif command -v pacman >/dev/null; then
+            pacman -Syu --noconfirm
+        fi
     fi
 
-    print_info "Starting system update using $OS_FAMILY package manager..."
-    $PM_UPDATE
-    $PM_UPGRADE
-    $PM_CLEAN
+    zenity --question --title="Schedule Daily Update" \
+        --text="Create ~/update.sh and schedule it in Crontab for daily execution?" --width=400 2>/dev/null
 
-    print_success "System update complete."
-    zenity --info --title="Updater" --text="System successfully updated and cleaned." 2>/dev/null
+    if [ $? -eq 0 ]; then
+        UPDATE_FILE="$REAL_HOME/update.sh"
+
+        if command -v apt-get >/dev/null; then
+            CMD="apt-get update && apt-get upgrade -y && apt-get dist-upgrade -y && apt-get autoremove -y && apt-get clean && apt-get autoclean"
+        elif command -v dnf >/dev/null; then
+            CMD="dnf update -y && dnf autoremove -y && dnf clean all"
+        elif command -v pacman >/dev/null; then
+            CMD="pacman -Syu --noconfirm && pacman -Sc --noconfirm"
+        fi
+
+        cat << EOF > "$UPDATE_FILE"
+#!/bin/sh
+# Auto-generated Update Script
+export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+echo "--- Start: \$(date) ---" >> "$REAL_HOME/update_log.txt"
+$CMD >> "$REAL_HOME/update_log.txt" 2>&1
+echo "--- End: \$(date) ---" >> "$REAL_HOME/update_log.txt"
+EOF
+
+        chmod +x "$UPDATE_FILE"
+        chown "$REAL_USER:$REAL_USER" "$UPDATE_FILE"
+
+        (crontab -l 2>/dev/null | grep -v "$UPDATE_FILE"; echo "0 4 * * * $UPDATE_FILE") | crontab -
+
+        print_success "Script created at $UPDATE_FILE and scheduled (04:00 AM)."
+        zenity --info --text="Success!\n\nScript: $UPDATE_FILE\nSchedule: Daily at 04:00\nLog: ~/update_log.txt" 2>/dev/null
+    fi
 }
 
 remove_apps()
@@ -245,7 +272,7 @@ install_apps()
     fi
 
     # Firewall Basic Hardening
-    if echo "$PADDED_APPS" | grep -qE "|ufw|firewalld|"; then
+    if echo "$PADDED_APPS" | grep -q "|ufw|" || echo "$PADDED_APPS" | grep -q "|firewalld|"; then
         zenity --question --title="Firewall Safety" \
             --text="Would you like to apply a 'Safety First' configuration?\n(Blocks all incoming except SSH)" 2>/dev/null
         if [ $? -eq 0 ]; then

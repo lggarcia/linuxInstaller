@@ -34,22 +34,24 @@ manage_logs()
 
         case "$LOG_ACTION" in
             1)
-                print_info "Fetching system events..."
-                LOG_EXPORT="$REAL_HOME/sysLog_export_$(date +%Y%m%d_%H%M%S).txt"
-                journalctl -xe -n 200 --no-pager > /tmp/syslog_view.txt
-                zenity --text-info --title="System Events (journalctl)" \
-                    --filename="$LOG_EXPORT" --width=800 --height=600 \
-                    --font="Monospace 10" 2>/dev/null
-                print_success "Log exported and saved to: $LOG_EXPORT"
+                TMP_LOG="/tmp/sys_log.txt"
+                if command -v journalctl >/dev/null 2>&1; then
+                    journalctl -n 200 --no-pager > "$TMP_LOG"
+                else
+                    tail -n 200 /var/log/syslog > "$TMP_LOG" 2>/dev/null || echo "Log não encontrado." > "$TMP_LOG"
+                fi
+                zenity --text-info --title="System Logs" --filename="$TMP_LOG" --width=850 --height=600 2>/dev/null
+                rm -f "$TMP_LOG"
                 ;;
             2)
-                print_info "Fetching Kernel logs..."
-                LOG_EXPORT="$REAL_HOME/kernelLog_export_$(date +%Y%m%d_%H%M%S).txt"
-                journalctl -k -n 200 --no-pager > /tmp/kernlog_view.txt
-                zenity --text-info --title="Kernel Logs (dmesg)" \
-                    --filename="$LOG_EXPORT" --width=800 --height=600 \
-                    --font="Monospace 10" 2>/dev/null
-                print_success "Log exported and saved to: $LOG_EXPORT"
+                TMP_LOG="/tmp/kern_log.txt"
+                if command -v journalctl >/dev/null 2>&1; then
+                    journalctl -k -n 200 --no-pager > "$TMP_LOG"
+                else
+                    dmesg | tail -n 200 > "$TMP_LOG"
+                fi
+                zenity --text-info --title="Kernel Logs" --filename="$TMP_LOG" --width=850 --height=600 2>/dev/null
+                rm -f "$TMP_LOG"
                 ;;
             3)
                 print_info "Generating comprehensive login report..."
@@ -58,13 +60,13 @@ manage_logs()
                 echo "============================================================" > "$LOG_EXPORT"
                 echo " 🟢 SUCCESSFUL LOGINS (Local & SSH)" >> "$LOG_EXPORT"
                 echo "============================================================" >> "$LOG_EXPORT"
-                last -a | head -n 15 >> "$LOG_EXPORT"
+                last -a -F | head -n 15 >> "$LOG_EXPORT"
                 echo "" >> "$LOG_EXPORT"
                 
                 echo "============================================================" >> "$LOG_EXPORT"
                 echo " 🔴 FAILED LOGINS  (Local & SSH)" >> "$LOG_EXPORT"
                 echo "============================================================" >> "$LOG_EXPORT"
-                lastb -a | head -n 15 >> "$LOG_EXPORT"
+                lastb -a -F 2>/dev/null | head -n 15 >> "$LOG_EXPORT"
                 echo "" >> "$LOG_EXPORT"
                 
                 echo "============================================================" >> "$LOG_EXPORT"
@@ -72,6 +74,9 @@ manage_logs()
                 echo "============================================================" >> "$LOG_EXPORT"
                 journalctl _COMM=sshd _COMM=login -n 100 --no-pager >> "$LOG_EXPORT"
                 
+                # Ensure the user owns the file, not root
+                chown "$REAL_USER:$REAL_USER" "$LOG_EXPORT"
+
                 zenity --text-info --title="Security: Login & Authentication" \
                     --filename="$LOG_EXPORT" --width=850 --height=750 \
                     --font="Monospace 10" 2>/dev/null

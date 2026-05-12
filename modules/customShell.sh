@@ -166,36 +166,40 @@ EOF
     
     # --- OPTION 8: Fancy Prompt ---
     if echo "$PADDED_CHOICES" | grep -q "|8|"; then
-        INSTALL_FANCY="yes"
+    INSTALL_FANCY="yes"
+    
+    if [ "$CURRENT_SHELL" != "bash" ]; then
+        zenity --question --title="Compatibility Warning" \
+            --text="Fancy Prompt was specifically designed for Bash.\nYour current shell is detected as: $CURRENT_SHELL.\n\nDo you really want to attempt installing it into $TARGET_PROFILE anyway?" 2>/dev/null
         
-        if [ "$CURRENT_SHELL" != "bash" ]; then
-            zenity --question --title="Compatibility Warning" \
-                --text="Fancy Prompt was specifically designed for Bash.\nYour current shell is detected as: $CURRENT_SHELL.\n\nDo you really want to attempt installing it into $TARGET_PROFILE anyway?" 2>/dev/null
-            
-            if [ $? -ne 0 ]; then
-                INSTALL_FANCY="no"
-                print_info "Fancy Prompt installation skipped by user."
-            fi
-        fi
-
-        if [ "$INSTALL_FANCY" = "yes" ]; then
-            print_info "Downloading and configuring Fancy Prompt..."
-            if command -v wget >/dev/null 2>&1; then
-                wget -q -O "$REAL_HOME/.fancy-prompt.sh" https://raw.githubusercontent.com/pjmp/fancy-linux-prompt/master/fancy-prompt.sh
-                
-                chown "$REAL_USER:$REAL_USER" "$REAL_HOME/.fancy-prompt.sh"
-                
-                if ! grep -q ".fancy-prompt.sh" "$TARGET_PROFILE"; then
-                    echo "" >> "$TARGET_PROFILE"
-                    echo "# Fancy Prompt" >> "$TARGET_PROFILE"
-                    echo '[ -f "'"$REAL_HOME"'/.fancy-prompt.sh" ] && . "'"$REAL_HOME"'/.fancy-prompt.sh"' >> "$TARGET_PROFILE"
-                fi
-                print_success "Fancy Prompt added to $TARGET_PROFILE."
-            else
-                zenity --warning --text="'wget' is not installed. Failed to download Fancy Prompt." 2>/dev/null
-            fi
+        if [ $? -ne 0 ]; then
+            INSTALL_FANCY="no"
+            print_info "Fancy Prompt installation skipped by user."
         fi
     fi
 
-    zenity --info --text="Success! Settings applied to $CONFIG_FILE and linked to $TARGET_PROFILE.\nPlease log out and log back in (or restart your terminal) to see the changes." 2>/dev/null
+    if [ "$INSTALL_FANCY" = "yes" ]; then
+        print_info "Downloading and configuring Fancy Prompt..."
+        FANCY_FILE="$REAL_HOME/.fancy-prompt.sh"
+        BASHRC_FILE="$REAL_HOME/.bashrc"
+
+        if command -v wget >/dev/null 2>&1; then
+            if wget -O "$FANCY_FILE" https://raw.githubusercontent.com/pombadev/fancy-linux-prompt/master/fancy-prompt.sh 2>/dev/null; then
+                chown "$REAL_USER:$REAL_USER" "$FANCY_FILE"
+                chmod +x "$FANCY_FILE"
+                
+                #if ! grep -q ".fancy-prompt.sh" "$BASHRC_FILE" 2>/dev/null; then
+                    echo "" >> "$BASHRC_FILE"
+                    echo "# Fancy Prompt" >> "$BASHRC_FILE"
+                    echo "[ -f \"$FANCY_FILE\" ] && . \"$FANCY_FILE\"" >> "$BASHRC_FILE"
+                #fi
+                print_success "Fancy Prompt added to .bashrc."
+            else
+                zenity --error --text="Failed to download Fancy Prompt. Verify the URL." 2>/dev/null
+            fi
+        else
+            zenity --warning --text="'wget' is not installed. Failed to download Fancy Prompt." 2>/dev/null
+        fi
+    fi
+fi
 }
