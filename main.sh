@@ -35,7 +35,7 @@ printf "%b\n" "${GREEN}# ${YELLOW}LL${GRAY_DARK}L            ${BLUE}GGGGGGG${GRA
 printf "%b\n" "${GREEN}# ${YELLOW}LL${GRAY_DARK}L            ${BLUE}GG${GRAY_DARK}G          ${GREEN} #${GRAY_DARK}##${NC}"
 printf "%b\n" "${GREEN}# ${YELLOW}LL${GRAY_DARK}L            ${BLUE}GG${GRAY_DARK}G ${BLUE}GGGG${GRAY_DARK}G     ${GREEN}#${GRAY_DARK}##${NC}"
 printf "%b\n" "${GREEN}# ${YELLOW}LL${GRAY_DARK}L            ${BLUE}GG${GRAY_DARK}G   ${BLUE}GG${GRAY_DARK}G     ${GREEN}#${GRAY_DARK}##${NC}"
-printf "%b\n" "${GREEN}# ${YELLOW}LLLLLLL${GRAY_DARK}L ${WHITE} X${GRAY_DARK}X  ${BLUE}GGGGGGGG${GRAY_DARK}G  ${WHITE}X${GRAY_DARK}X ${GREEN}#${GRAY_DARK}###${NC}"
+printf "%b\n" "${GREEN}# ${YELLOW}LLLLLLL${GRAY_DARK}L ${WHITE} X${GRAY_DARK}X   ${BLUE}GGGGGGGG${GRAY_DARK}G  ${WHITE}X${GRAY_DARK}X ${GREEN}#${GRAY_DARK}##${NC}"
 printf "%b\n" "${GREEN}###############################${GRAY_DARK}###${NC}"
 printf "%b\n" "${GREEN}#       ${WHITE}LUCIANOGG.INFO        ${GREEN}#${GRAY_DARK}###${NC}"
 printf "%b\n" "${GREEN}###############################${GRAY_DARK}###${NC}"

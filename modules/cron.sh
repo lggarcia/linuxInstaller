@@ -55,26 +55,26 @@ manage_cron()
                 ;;
 
             3)
-		CRON_LIST=$(crontab -u "$REAL_USER" -l 2>/dev/null | grep -v "^#" | grep -v "^$")
+                CRON_LIST=$(crontab -u "$REAL_USER" -l 2>/dev/null | grep -v "^#" | grep -v "^$")
 
-		if [ -z "$CRON_LIST" ]; then
-        	    zenity --warning --title="Crontab Vazio" \
-            	    --text="Nenhuma tarefa agendada encontrada para o usuário $REAL_USER." 2>/dev/null
-	            return 0
-    		fi
+                if [ -z "$CRON_LIST" ]; then
+                        zenity --warning --title="Crontab Vazio" \
+                            --text="Nenhuma tarefa agendada encontrada para o usuário $REAL_USER." 2>/dev/null
+                        return 0
+                    fi
 
-		TASK_TO_REMOVE=$(echo "$CRON_LIST" | zenity --list \
-        	    --title="Remover Tarefa Cron" \
-	            --text="Selecione a tarefa exata que deseja remover:" \
-	            --column="Comandos Agendados" --width=700 --height=300 2>/dev/null)
+                TASK_TO_REMOVE=$(echo "$CRON_LIST" | zenity --list \
+                        --title="Remover Tarefa Cron" \
+                        --text="Selecione a tarefa exata que deseja remover:" \
+                        --column="Comandos Agendados" --width=700 --height=300 2>/dev/null)
 
-    	       if [ -n "$TASK_TO_REMOVE" ]; then
-	           crontab -u "$REAL_USER" -l 2>/dev/null | grep -F -v "$TASK_TO_REMOVE" | crontab -u "$REAL_USER" -
+                    if [ -n "$TASK_TO_REMOVE" ]; then
+                    crontab -u "$REAL_USER" -l 2>/dev/null | grep -F -v "$TASK_TO_REMOVE" | crontab -u "$REAL_USER" -
 
-	           print_success "Tarefa removida."
-	           zenity --info --title="Sucesso" --text="A tarefa foi removida do crontab." 2>/dev/null
-    		fi
-		;;
+                    print_success "Tarefa removida."
+                    zenity --info --title="Sucesso" --text="A tarefa foi removida do crontab." 2>/dev/null
+                    fi
+                ;;
             4)
                 zenity --question --text="Are you sure you want to WIPE ALL tasks for $REAL_USER?" 2>/dev/null
                 if [ $? -eq 0 ]; then
