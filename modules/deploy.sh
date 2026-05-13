@@ -271,6 +271,7 @@ EOF
                 print_error "Failed to restart $ACTIVE_SSH_SVC. Please check the service status manually."
             fi
         fi
+    fi
 
     if echo "$PADDED_TASKS" | grep -q "|7|"; then
         ROOT_PASS=$(zenity --password --title="New password for ROOT" 2>/dev/null)
