@@ -143,16 +143,11 @@ run_deploy()
         IFACE=$(ip -o link show | awk -F': ' '{print $2}' | grep -v lo | head -n 1 | tr -d ' ')
 
         if [ -n "$IFACE" ]; then
-            if command -v nmcli >/dev/null 2>&1; then
-                nmcli con mod "$IFACE" ipv4.addresses "$NEW_IP/$NEW_CIDR" ipv4.gateway "$NEW_GW" ipv4.dns "$NEW_GW" ipv4.method manual
-                nmcli con up "$IFACE" >/dev/null 2>&1
-                print_success "Network configured via NetworkManager."
-            elif command -v netplan >/dev/null 2>&1 && [ -d /etc/netplan ]; then
+            if command -v netplan >/dev/null 2>&1 && ls /etc/netplan/*.yaml >/dev/null 2>&1; then
                 NETPLAN_FILE="/etc/netplan/99-deploy-static.yaml"
                 cat <<EOF > "$NETPLAN_FILE"
 network:
   version: 2
-  renderer: networkd
   ethernets:
     $IFACE:
       dhcp4: no
@@ -163,8 +158,18 @@ network:
       nameservers:
         addresses: [$NEW_GW, 8.8.8.8]
 EOF
+                chmod 600 "$NETPLAN_FILE"
                 netplan apply
                 print_success "Network configured via Netplan."
+            
+            elif command -v nmcli >/dev/null 2>&1; then
+                CON_NAME=$(nmcli -t -f NAME,DEVICE con show | grep ":$IFACE" | cut -d: -f1 | head -n1)
+                [ -z "$CON_NAME" ] && CON_NAME="$IFACE"
+                
+                nmcli con mod "$CON_NAME" ipv4.addresses "$NEW_IP/$NEW_CIDR" ipv4.gateway "$NEW_GW" ipv4.dns "$NEW_GW" ipv4.method manual
+                nmcli con up "$CON_NAME" >/dev/null 2>&1
+                print_success "Network configured via NetworkManager."
+            
             elif [ -d /etc/network ]; then
                 cp /etc/network/interfaces /etc/network/interfaces.bak.deploy 2>/dev/null
                 cat <<EOF > /etc/network/interfaces
@@ -180,7 +185,7 @@ iface $IFACE inet static
 EOF
                 print_success "Network configured via /etc/network/interfaces."
             else
-                print_error "No supported network manager found (nmcli, netplan, or interfaces). Please configure manually."
+                print_error "No supported network manager found. Configure manually."
             fi
         else
             print_error "Could not detect a valid physical/virtual network interface."
@@ -217,30 +222,55 @@ EOF
     if echo "$PADDED_TASKS" | grep -q "|6|"; then
         print_info "Updating SSH configuration..."
 
-        if [ -n "$NEW_SSH_PORT" ]; then
-            sed -i -E "s/^#?Port [0-9]+/Port $NEW_SSH_PORT/" /etc/ssh/sshd_config
-            print_success "SSH Port set to $NEW_SSH_PORT."
+        ACTIVE_SSH_SVC=""
+        if systemctl list-unit-files 2>/dev/null | grep -q "^ssh\.socket"; then
+            ACTIVE_SSH_SVC="ssh.socket"
+        elif systemctl is-active --quiet ssh 2>/dev/null || systemctl is-enabled --quiet ssh 2>/dev/null; then
+            ACTIVE_SSH_SVC="ssh"
+        elif systemctl is-active --quiet sshd 2>/dev/null || systemctl is-enabled --quiet sshd 2>/dev/null; then
+            ACTIVE_SSH_SVC="sshd"
         fi
 
-        if [ "$DISABLE_ROOT_SSH" = "yes" ]; then
-            sed -i -E "s/^#?PermitRootLogin.*/PermitRootLogin no/" /etc/ssh/sshd_config
-            print_success "Root SSH Login disabled."
-        fi
-
-        if [ "$ENABLE_X11" = "yes" ]; then
-            sed -i -E "s/^#?X11Forwarding.*/X11Forwarding yes/" /etc/ssh/sshd_config
-            print_success "X11 Forwarding enabled."
+        if [ -z "$ACTIVE_SSH_SVC" ]; then
+            print_error "Could not detect an active SSH service. Skipping SSH restart."
         else
-            sed -i -E "s/^#?X11Forwarding.*/X11Forwarding no/" /etc/ssh/sshd_config
-            print_success "X11 Forwarding disabled."
-        fi
+            if [ -n "$NEW_SSH_PORT" ]; then
+                if [ "$ACTIVE_SSH_SVC" = "ssh.socket" ]; then
+                    mkdir -p /etc/systemd/system/ssh.socket.d
+                    cat <<EOF > /etc/systemd/system/ssh.socket.d/listen.conf
+[Socket]
+ListenStream=
+ListenStream=$NEW_SSH_PORT
+EOF
+                    systemctl daemon-reload
+                    print_success "SSH Port set to $NEW_SSH_PORT via systemd socket override."
+                else
+                    sed -i -E '/^#?Port /d' /etc/ssh/sshd_config
+                    echo "Port $NEW_SSH_PORT" >> /etc/ssh/sshd_config
+                    print_success "SSH Port set to $NEW_SSH_PORT in sshd_config."
+                fi
+            fi
 
-        if systemctl is-active --quiet sshd; then
-            systemctl restart sshd
-        elif systemctl is-active --quiet ssh; then
-            systemctl restart ssh
+            if [ "$DISABLE_ROOT_SSH" = "yes" ]; then
+                sed -i -E "s/^#?PermitRootLogin.*/PermitRootLogin no/" /etc/ssh/sshd_config
+                print_success "Root SSH Login disabled."
+            fi
+
+            if [ "$ENABLE_X11" = "yes" ]; then
+                sed -i -E "s/^#?X11Forwarding.*/X11Forwarding yes/" /etc/ssh/sshd_config
+                print_success "X11 Forwarding enabled."
+            else
+                sed -i -E "s/^#?X11Forwarding.*/X11Forwarding no/" /etc/ssh/sshd_config
+                print_success "X11 Forwarding disabled."
+            fi
+
+            print_info "Restarting detected service: $ACTIVE_SSH_SVC..."
+            if systemctl restart "$ACTIVE_SSH_SVC"; then
+                print_success "Successfully applied changes to $ACTIVE_SSH_SVC."
+            else
+                print_error "Failed to restart $ACTIVE_SSH_SVC. Please check the service status manually."
+            fi
         fi
-    fi
 
     if echo "$PADDED_TASKS" | grep -q "|7|"; then
         ROOT_PASS=$(zenity --password --title="New password for ROOT" 2>/dev/null)
