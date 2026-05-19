@@ -13,7 +13,14 @@
 
 REPO_URL="https://github.com/lggarcia/linuxInstaller.git"
 DEST_DIR="/opt/linuxMaster"
-BIN_LINK="/usr/local/bin/linuxmaster"
+#BIN_LINK="/usr/bin/linuxmaster"
+
+cat << EOF > "$BIN_LINK"
+#!/bin/sh
+# Linux Master Assistant Automation Wrapper
+exec sudo -E "$DEST_DIR/main.sh" "\$@"
+EOF
+chmod +x "$BIN_LINK"
 
 echo "========================================"
 echo " Installing Linux Master Assistant..."

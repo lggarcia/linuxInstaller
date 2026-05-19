@@ -43,10 +43,10 @@ printf "%b\n" "${GRAY_DARK}##################################${NC}"
 printf "%b\n" "${GRAY_DARK} #################################${NC}"
 printf "\n"
 
-#!/bin/sh
-# =========================================================
-# LINUX MASTER ASSISTANT - ENTRY POINT
-# =========================================================
+export GDK_CORE_DEVICE_EVENTS=1
+if [ "$XDG_SESSION_TYPE" = "wayland" ]; then
+    export GDK_BACKEND=x11
+fi
 
 PRG="$0"
 while [ -h "$PRG" ]; do
@@ -59,8 +59,6 @@ while [ -h "$PRG" ]; do
     fi
 done
 PROJECT_ROOT=$(cd "$(dirname "$PRG")" && pwd)
-
-#PROJECT_ROOT=$(cd "$(dirname "$0")" && pwd)
 export PROJECT_ROOT
 
 #shellcheck disable=SC1091

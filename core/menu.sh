@@ -60,7 +60,7 @@ show_menu()
             "7" "Firewall Manager" \
             "8" "Task Scheduler (Cron)"\
             "9" "Log & Audit Manager"\
-            "10" "Hardware Information" \
+            "10" "Hardware/Software Information" \
             "11" "Debian Upgrade -> Bullseye (11) to Bookworm(12) - DANGEROUS" \
             "12" "Debian Upgrade -> Bookworm(12) to Trixie(13) - DANGEROUS" \
             "0" "Exit" \
@@ -123,7 +123,7 @@ show_menu()
             10)
                 if [ -f "$PROJECT_ROOT/modules/hardware.sh" ]; then
                     . "$PROJECT_ROOT/modules/hardware.sh"
-                    get_hardware_info
+                    run_system_auditor
                 else
                     zenity --error --text="Module 'hardware.sh' not found." 2>/dev/null
                 fi
