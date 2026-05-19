@@ -124,8 +124,9 @@ EOF
 
     # --- OPTION 7: cd Function (POSIX Compliant override) ---
     if echo "$PADDED_CHOICES" | grep -q "|7|"; then
-        cat <<'EOF' >> "$CONFIG_FILE"
-# Auto ls after cd
+         if [ "$CURRENT_SHELL" != "zsh" ]; then
+             cat <<'EOF' >> "$CONFIG_FILE"
+# Auto ls after cd (Skipped on ZSH to prevent conflicts)
 cd() {
     if [ "$#" -gt 0 ]; then
         command cd "$@" && ls
@@ -134,6 +135,9 @@ cd() {
     fi
 }
 EOF
+        else
+            print_info "Skipping 'cd' override for ZSH compatibility."
+        fi
     fi
 
     # Setting configs to Shell

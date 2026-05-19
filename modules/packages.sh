@@ -11,10 +11,10 @@
 #MODULE: APPS INSTALLER packages.sh#
 ####################################
 
-run_updater() 
+run_updater()
 {
     zenity --question --title="Update Now" \
-        --text="Would you like install system updates immediately?" --width=400 2>/dev/null
+        --text="Would you like to install system updates immediately?" --width=400 2>/dev/null
     if [ $? -eq 0 ]; then
         print_info "Updating system..."
         if command -v apt-get >/dev/null; then
@@ -52,10 +52,10 @@ EOF
         chmod +x "$UPDATE_FILE"
         chown "$REAL_USER:$REAL_USER" "$UPDATE_FILE"
 
-        (crontab -l 2>/dev/null | grep -v "$UPDATE_FILE"; echo "0 4 * * * $UPDATE_FILE") | crontab -
+        (crontab -l 2>/dev/null | grep -v "$UPDATE_FILE"; echo "0 5 * * * $UPDATE_FILE") | crontab -
 
-        print_success "Script created at $UPDATE_FILE and scheduled (04:00 AM)."
-        zenity --info --text="Success!\n\nScript: $UPDATE_FILE\nSchedule: Daily at 04:00\nLog: ~/update_log.txt" 2>/dev/null
+        print_success "Script created at $UPDATE_FILE and scheduled (05:00 AM)."
+        zenity --info --text="Success!\n\nScript: $UPDATE_FILE\nSchedule: Daily at 05:00\nLog: ~/update_log.txt" 2>/dev/null
     fi
 }
 
@@ -103,13 +103,62 @@ remove_apps()
     fi
 }
 
+translate_packages()
+{
+    local RAW_LIST="$1"
+    local FINAL_LIST=""
+
+    for app in $(echo "$RAW_LIST" | tr '|' ' '); do
+        if [ "$app" = "docker" ] || [ "$app" = "fail2ban" ] || [ "$app" = "endlessh" ] || [ "$app" = "ufw" ] || [ "$app" = "firewalld" ]; then
+            continue
+        fi
+
+        case "$app" in
+            "p7zip")
+                [ "$OS_FAMILY" = "debian" ] && FINAL_LIST="$FINAL_LIST p7zip-full"
+                [ "$OS_FAMILY" = "rhel" ] && FINAL_LIST="$FINAL_LIST p7zip p7zip-plugins"
+                [ "$OS_FAMILY" = "arch" ] && FINAL_LIST="$FINAL_LIST p7zip"
+                ;;
+            "pip")
+                [ "$OS_FAMILY" = "arch" ] && FINAL_LIST="$FINAL_LIST python-pip" || FINAL_LIST="$FINAL_LIST python3-pip"
+                ;;
+            "dnsutils")
+                [ "$OS_FAMILY" = "debian" ] && FINAL_LIST="$FINAL_LIST dnsutils"
+                [ "$OS_FAMILY" = "rhel" ] && FINAL_LIST="$FINAL_LIST bind-utils"
+                [ "$OS_FAMILY" = "arch" ] && FINAL_LIST="$FINAL_LIST bind"
+                ;;
+            "lsb")
+                [ "$OS_FAMILY" = "rhel" ] && FINAL_LIST="$FINAL_LIST redhat-lsb-core" || FINAL_LIST="$FINAL_LIST lsb-release"
+                ;;
+            "sensors")
+                [ "$OS_FAMILY" = "debian" ] && FINAL_LIST="$FINAL_LIST lm-sensors" || FINAL_LIST="$FINAL_LIST lm_sensors"
+                ;;
+            "wine")
+                [ "$OS_FAMILY" = "debian" ] && FINAL_LIST="$FINAL_LIST wine64 wine64-tools"
+                [ "$OS_FAMILY" = "rhel" ] || [ "$OS_FAMILY" = "arch" ] && FINAL_LIST="$FINAL_LIST wine"
+                ;;
+            "grub-customizer")
+                [ "$OS_FAMILY" = "debian" ] && FINAL_LIST="$FINAL_LIST grub-customizer"
+                ;;
+            "apt-transport-https")
+                [ "$OS_FAMILY" = "debian" ] && FINAL_LIST="$FINAL_LIST apt-transport-https"
+                ;;
+            *)
+                # Default: Package name is identical across most distros
+                FINAL_LIST="$FINAL_LIST $app"
+                ;;
+        esac
+    done
+    echo "$FINAL_LIST"
+}
+
 install_apps()
 {
     SELECTED_APPS=$(zenity --list --checklist \
         --title="Install Applications" \
-        --text="Select the applications to install.\nNotes: Some tools are Debian-only. Other are has a special script." \
-        --width=700 --height=600 \
-        --column="Install" --column="App" --column="Description" \
+        --text="Select the applications to install.\nThe installer will automatically resolve names for your distro ($OS_FAMILY)." \
+        --width=750 --height=650 \
+        --column="Install" --column="App ID" --column="Description" \
         --separator='|' \
         TRUE "htop"                  "System Monitor" \
         TRUE "ncdu"                  "Disk Usage Viewer" \
@@ -123,17 +172,17 @@ install_apps()
         TRUE "cmake"                 "Cross-Platform Build Tool" \
         TRUE "gparted"               "Partition Editor" \
         TRUE "gnome-disk-utility"    "GNOME Disk Utility" \
-        TRUE "p7zip-full"            "7-Zip Compression" \
-        TRUE "lsb-release"           "LSB Release Info" \
+        TRUE "p7zip"                 "7-Zip Compression (Multi-distro mapped)" \
+        TRUE "lsb"                   "LSB Release Info (Multi-distro mapped)" \
         TRUE "python3"               "Python 3" \
-        TRUE "python3-pip"           "Pip for Python 3" \
+        TRUE "pip"                   "Pip for Python (Multi-distro mapped)" \
         TRUE "apt-transport-https"   "APT HTTPS Transport (Debian only)" \
         TRUE "curl"                  "Command Line HTTP Client" \
         TRUE "ca-certificates"       "CA Certificates" \
         TRUE "unzip"                 "Unzip Utility" \
         TRUE "unrar-free"            "RAR Utility" \
         TRUE "ethtool"               "Network Tool Kit" \
-        TRUE "dnsutils"              "DNS Utilities" \
+        TRUE "dnsutils"              "DNS Utilities (Multi-distro mapped)" \
         TRUE "net-tools"             "Network Tools" \
         TRUE "vlc"                   "VLC Media Player" \
         FALSE "fail2ban"             "Security: Ban Brute Force (Requires Config)" \
@@ -166,13 +215,11 @@ install_apps()
         FALSE "k3b"                  "Disc Burning" \
         FALSE "handbrake"            "Video Converter" \
         FALSE "obs-studio"           "Streaming Software" \
-        FALSE "wine"                 "Wine Compatibility Layer" \
-        FALSE "wine64"               "Wine 64-bit" \
-        FALSE "wine64-tools"         "Wine Tools" \
-        TRUE "grub-customizer"       "GRUB GUI Tool (May fail on Kali/Mint)" \
+        FALSE "wine"                 "Wine Compatibility Layer (Multi-distro mapped)" \
+        TRUE "grub-customizer"       "GRUB GUI Tool (Debian/Ubuntu only)" \
         FALSE "freefilesync"         "Folder Sync Tool" \
         FALSE "torbrowser-launcher"  "Tor Browser Installer" \
-        FALSE "lm-sensors"           "Sensor Monitor" \
+        FALSE "sensors"              "Sensor Monitor (Multi-distro mapped)" \
         FALSE "nvme-cli"             "NVMe Tools" \
         FALSE "cmatrix"              "Matrix Screensaver" \
         FALSE "hollywood"            "Hollywood Terminal FX" 2>/dev/null)
@@ -208,31 +255,24 @@ install_apps()
             --add-entry="Endlessh Port (Tarpit/Trap - usually 22)" \
             --add-entry="New Real SSH Port (e.g., 2222)" \
             --separator="|" 2>/dev/null)
-        
+
         [ -n "$ENDLESS_DATA" ] && ENDLESS_PORT=$(echo "$ENDLESS_DATA" | cut -d'|' -f1)
         [ -n "$ENDLESS_DATA" ] && REAL_SSH_PORT=$(echo "$ENDLESS_DATA" | cut -d'|' -f2)
-        
-        # Default fallbacks
+
         ENDLESS_PORT=${ENDLESS_PORT:-22}
         REAL_SSH_PORT=${REAL_SSH_PORT:-2222}
     fi
 
-    #custom/special apps
-    STANDARD_APPS=$(echo "$SELECTED_APPS" | tr '|' ' ' | sed 's/docker//g; s/fail2ban//g; s/endlessh//g')
-
-    #Debian-only
-    if [ "$OS_FAMILY" != "debian" ]; then
-        STANDARD_APPS=$(echo "$STANDARD_APPS" | sed 's/apt-transport-https//g; s/grub-customizer//g')
-    fi
-
+    print_info "Syncing package repositories..."
     $PM_UPDATE
+
+    STANDARD_APPS=$(translate_packages "$SELECTED_APPS")
 
     if [ -n "$(echo "$STANDARD_APPS" | tr -d ' ')" ]; then
         print_info "Installing standard applications..."
         $PM_INSTALL $STANDARD_APPS
     fi
 
-    # Docker Installation
     if echo "$PADDED_APPS" | grep -q "|docker|"; then
         if [ -f "$PROJECT_ROOT/modules/pkg-configs/docker.sh" ]; then
             print_info "Running custom Docker installation..."
@@ -243,7 +283,6 @@ install_apps()
         fi
     fi
 
-    # Fail2Ban Installation & Config
     if echo "$PADDED_APPS" | grep -q "|fail2ban|"; then
         print_info "Installing Fail2Ban..."
         $PM_INSTALL fail2ban
@@ -257,11 +296,10 @@ install_apps()
         fi
     fi
 
-    # Endlessh Installation & Config
     if echo "$PADDED_APPS" | grep -q "|endlessh|"; then
         print_info "Installing Endlessh..."
         $PM_INSTALL endlessh
-        
+
         if [ -f "$PROJECT_ROOT/modules/pkg-configs/endlessh.sh" ]; then
             print_info "Configuring Endlessh..."
             . "$PROJECT_ROOT/modules/pkg-configs/endlessh.sh"
@@ -271,7 +309,6 @@ install_apps()
         fi
     fi
 
-    # Firewall Basic Hardening
     if echo "$PADDED_APPS" | grep -q "|ufw|" || echo "$PADDED_APPS" | grep -q "|firewalld|"; then
         zenity --question --title="Firewall Safety" \
             --text="Would you like to apply a 'Safety First' configuration?\n(Blocks all incoming except SSH)" 2>/dev/null
