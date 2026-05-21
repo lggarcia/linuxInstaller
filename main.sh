@@ -43,10 +43,10 @@ printf "%b\n" "${GRAY_DARK}##################################${NC}"
 printf "%b\n" "${GRAY_DARK} #################################${NC}"
 printf "\n"
 
-export GDK_CORE_DEVICE_EVENTS=1
-if [ "$XDG_SESSION_TYPE" = "wayland" ]; then
-    export GDK_BACKEND=x11
-fi
+#export GDK_CORE_DEVICE_EVENTS=1
+#if [ "$XDG_SESSION_TYPE" = "wayland" ]; then
+#    export GDK_BACKEND=x11
+#fi
 
 PRG="$0"
 while [ -h "$PRG" ]; do

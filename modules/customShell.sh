@@ -14,6 +14,7 @@
 ##########################################
 
 configure_shell() {
+
     CHOICES=$(zenity --list --checklist \
         --title="Configure Shell" \
         --text="Select the options to apply globally to your shell environment:" \
@@ -35,10 +36,6 @@ configure_shell() {
         return 0
     fi
 
-    #REAL_USER=${SUDO_USER:-$(whoami)}
-    #REAL_HOME=$(getent passwd "$REAL_USER" | cut -d: -f6)
-    #REAL_SHELL=$(getent passwd "$REAL_USER" | cut -d: -f7)
-    #print_info "Applying settings for user: $REAL_USER at $REAL_HOME"
     CONFIG_FILE="$REAL_HOME/.shell_customizations.sh"
     
     echo "# --- LINUX MASTER ASSISTANT CUSTOMIZATIONS ---" > "$CONFIG_FILE"
@@ -122,6 +119,8 @@ up() {
 EOF
     fi
 
+    CURRENT_SHELL=$(basename "$REAL_SHELL")
+
     # --- OPTION 7: cd Function (POSIX Compliant override) ---
     if echo "$PADDED_CHOICES" | grep -q "|7|"; then
          if [ "$CURRENT_SHELL" != "zsh" ]; then
@@ -140,11 +139,8 @@ EOF
         fi
     fi
 
-    # Setting configs to Shell
     chmod +x "$CONFIG_FILE"
     chown "$REAL_USER:$REAL_USER" "$CONFIG_FILE"
-    
-    CURRENT_SHELL=$(basename "$REAL_SHELL")
     TARGET_PROFILE=""
 
     case "$CURRENT_SHELL" in

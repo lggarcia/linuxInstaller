@@ -13,14 +13,7 @@
 
 REPO_URL="https://github.com/lggarcia/linuxInstaller.git"
 DEST_DIR="/opt/linuxMaster"
-#BIN_LINK="/usr/bin/linuxmaster"
-
-cat << EOF > "$BIN_LINK"
-#!/bin/sh
-# Linux Master Assistant Automation Wrapper
-exec sudo -E "$DEST_DIR/main.sh" "\$@"
-EOF
-chmod +x "$BIN_LINK"
+BIN_LINK="/usr/bin/linuxmaster"
 
 echo "========================================"
 echo " Installing Linux Master Assistant..."
@@ -45,14 +38,22 @@ else
     git clone "$REPO_URL" "$DEST_DIR"
 fi
 
-echo "-> Setting executable permissions..."
+echo "-> Setting executable permissions on scripts..."
 find "$DEST_DIR" -type f -name "*.sh" -exec chmod +x {} \;
 
-echo "-> Creating global shortcut..."
-ln -sf "$DEST_DIR/main.sh" "$BIN_LINK"
+echo "-> Creating global automation wrapper..."
+rm -f "$BIN_LINK" /usr/local/bin/linuxmaster 2>/dev/null
+
+cat << 'EOF' > "$BIN_LINK"
+#!/bin/sh
+# Linux Master Assistant Automation Wrapper
+exec sudo env DISPLAY="$DISPLAY" XAUTHORITY="${XAUTHORITY:-$HOME/.Xauthority}" XDG_RUNTIME_DIR="/run/user/$(id -u)" WAYLAND_DISPLAY="$WAYLAND_DISPLAY" /opt/linuxMaster/main.sh "$@"
+EOF
+
+chmod +x "$BIN_LINK"
 
 echo "========================================"
 echo " Installation Complete!"
 echo " You can now launch the tool from anywhere by typing:"
-echo " sudo linuxmaster"
+echo " linuxmaster"
 echo "========================================"
