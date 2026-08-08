@@ -45,7 +45,7 @@ configure_shell() {
     # --- OPTION 1: Safe File Operations ---
     # --- OPTION 1: Safe File Operations ---
     if echo "$PADDED_CHOICES" | grep -q "|1|"; then
-        zenity --warning --text="rm ALIAS uses TRASH-CLI.\n\ncat ALIAS uses BAT.\n\n In case you don't have this packages installed,\nyou should install them or remove those ALIASES." 2>/dev/null
+        zenity --warning --text="rm ALIAS uses TRASH-CLI.\n\ncat ALIAS uses BAT.\n\n In case you don't have this packages installed,they will be commented\n Uncomment them when you install it!    ." 2>/dev/null
 
         cat <<'EOF' >> "$CONFIG_FILE"
 # Safe File Operations
@@ -66,6 +66,17 @@ EOF
 
         if [ "$OS_FAMILY" = "rhel" ]; then
             sed -i 's/^alias rm="trash -v"/#alias rm="trash -v"/' "$CONFIG_FILE"
+        fi
+
+        if ! command -v trash >/dev/null 2>&1; then
+            sed -i 's/^alias rm="trash -v"/#alias rm="trash -v"/' "$CONFIG_FILE"
+        fi
+
+        if ! command -v bat >/dev/null 2>&1 && ! command -v batcat >/dev/null 2>&1; then
+            sed -i 's/^alias cat="bat"/#alias cat="bat"/' "$CONFIG_FILE"
+        elif command -v batcat >/dev/null 2>&1; then
+            #for Ubuntu
+            sed -i 's/^alias cat="bat"/alias cat="batcat"/' "$CONFIG_FILE"
         fi
     fi
 
