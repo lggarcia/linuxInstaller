@@ -52,7 +52,7 @@ configure_shell() {
 alias cp="cp -i"
 alias mv="mv -i"
 alias rm="trash -v"
-alias rmf="command rm --recursive --force --verbose"
+alias rmf="command rm -rfv"
 alias autoUpdate="~/update.sh"
 EOF
 
