@@ -13,34 +13,17 @@
 
 run_updater()
 {
-    zenity --question --title="Update Now" \
-        --text="Would you like to install system updates immediately?" --width=400 2>/dev/null
-    if [ $? -eq 0 ]; then
-        print_info "Updating system..."
-        if command -v apt-get >/dev/null; then
-            apt-get update && apt-get upgrade -y
-        elif command -v dnf >/dev/null; then
-            dnf update -y
-        elif command -v pacman >/dev/null; then
-            pacman -Syu --noconfirm
-        fi
+    UPDATE_FILE="$REAL_HOME/update.sh"
+
+    if command -v apt-get >/dev/null; then
+        CMD="apt-get update && apt-get upgrade -y && apt-get dist-upgrade -y && apt-get autoremove -y && apt-get clean && apt-get autoclean"
+    elif command -v dnf >/dev/null; then
+        CMD="dnf update -y && dnf autoremove -y && dnf clean all"
+    elif command -v pacman >/dev/null; then
+        CMD="pacman -Syu --noconfirm && pacman -Sc --noconfirm"
     fi
 
-    zenity --question --title="Schedule Daily Update" \
-        --text="Create ~/update.sh and schedule it in Crontab for daily execution?" --width=400 2>/dev/null
-
-    if [ $? -eq 0 ]; then
-        UPDATE_FILE="$REAL_HOME/update.sh"
-
-        if command -v apt-get >/dev/null; then
-            CMD="apt-get update && apt-get upgrade -y && apt-get dist-upgrade -y && apt-get autoremove -y && apt-get clean && apt-get autoclean"
-        elif command -v dnf >/dev/null; then
-            CMD="dnf update -y && dnf autoremove -y && dnf clean all"
-        elif command -v pacman >/dev/null; then
-            CMD="pacman -Syu --noconfirm && pacman -Sc --noconfirm"
-        fi
-
-        cat << EOF > "$UPDATE_FILE"
+    cat << EOF > "$UPDATE_FILE"
 #!/bin/sh
 # Auto-generated Update Script
 export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
@@ -49,12 +32,22 @@ $CMD >> "$REAL_HOME/update_log.txt" 2>&1
 echo "--- End: \$(date) ---" >> "$REAL_HOME/update_log.txt"
 EOF
 
-        chmod +x "$UPDATE_FILE"
-        chown "$REAL_USER:$REAL_USER" "$UPDATE_FILE"
+    chmod +x "$UPDATE_FILE"
+    chown "$REAL_USER:$REAL_USER" "$UPDATE_FILE"
+    print_success "Update script successfully generated at: $UPDATE_FILE"
 
+    zenity --question --title="Update Now" \
+        --text="Would you like to install system updates immediately?" --width=400 2>/dev/null
+    if [ $? -eq 0 ]; then
+        print_info "Updating system..."
+        $UPDATE_FILE
+    fi
+
+    zenity --question --title="Schedule Daily Update" \
+        --text="Schedule it in Crontab for daily execution at 05:00 AM?" --width=400 2>/dev/null
+    if [ $? -eq 0 ]; then
         (crontab -l 2>/dev/null | grep -v "$UPDATE_FILE"; echo "0 5 * * * $UPDATE_FILE") | crontab -
-
-        print_success "Script created at $UPDATE_FILE and scheduled (05:00 AM)."
+        print_success "Script scheduled for daily execution at 05:00 AM."
         zenity --info --text="Success!\n\nScript: $UPDATE_FILE\nSchedule: Daily at 05:00\nLog: ~/update_log.txt" 2>/dev/null
     fi
 }
@@ -119,6 +112,9 @@ translate_packages()
                 [ "$OS_FAMILY" = "rhel" ] && FINAL_LIST="$FINAL_LIST p7zip p7zip-plugins"
                 [ "$OS_FAMILY" = "arch" ] && FINAL_LIST="$FINAL_LIST p7zip"
                 ;;
+            "exfat-fuse")
+                [ "$OS_FAMILY" = "rhel" ] && FINAL_LIST="$FINAL_LIST exfatprogs" || FINAL_LIST="$FINAL_LIST exfat-fuse"
+                ;;
             "pip")
                 [ "$OS_FAMILY" = "arch" ] && FINAL_LIST="$FINAL_LIST python-pip" || FINAL_LIST="$FINAL_LIST python3-pip"
                 ;;
@@ -143,8 +139,16 @@ translate_packages()
             "apt-transport-https")
                 [ "$OS_FAMILY" = "debian" ] && FINAL_LIST="$FINAL_LIST apt-transport-https"
                 ;;
+            "libreoffice" | "gimp" | "fritzing" | "filezilla" | "qbittorrent" | "soundkonverter" | "audacity" | "audacious" | "kdenlive" | "obs-studio" | "torbrowser-launcher")
+                [ "$OS_FAMILY" = "rhel" ] || FINAL_LIST="$FINAL_LIST $app"
+                ;;
+            "drawio")
+                # Install via flatpak across all OS families, skipped here
+                ;;
+            "ranger" | "zoxide" | "trash-cli" | "gparted" | "cmatrix" | "hollywood")
+                [ "$OS_FAMILY" = "rhel" ] || FINAL_LIST="$FINAL_LIST $app"
+                ;;
             *)
-                # Default: Package name is identical across most distros
                 FINAL_LIST="$FINAL_LIST $app"
                 ;;
         esac
@@ -185,24 +189,24 @@ install_apps()
         TRUE "dnsutils"              "DNS Utilities (Multi-distro mapped)" \
         TRUE "net-tools"             "Network Tools" \
         TRUE "vlc"                   "VLC Media Player" \
+        TRUE "screen"                "Terminal Multiplexer" \
+        TRUE "bat"                   "Cat Clone with Syntax Highlighting" \
+        TRUE "zoxide"                "Smarter cd" \
+        TRUE "trash-cli"             "Trash Manager" \
+        TRUE "fzf"                   "Fuzzy Finder" \
+        TRUE "bash-completion"       "Bash Autocompletion" \
+        TRUE "cifs-utils"            "Windows Share Support" \
         FALSE "fail2ban"             "Security: Ban Brute Force (Requires Config)" \
         FALSE "endlessh"             "Honeypot for SSH (Requires Config)" \
         FALSE "ufw"                  "Uncomplicated Firewall (Debian/Ubuntu)" \
         FALSE "firewalld"            "Firewall Manager (RHEL/CentOS/Fedora)" \
         FALSE "docker"               "Docker Container Engine (Custom Script)" \
-        TRUE  "screen"               "Terminal Multiplexer" \
-        TRUE "bat"                   "Cat Clone with Syntax Highlighting" \
-        TRUE  "zoxide"               "Smarter cd" \
-        TRUE "trash-cli"             "Trash Manager" \
-        TRUE  "fzf"                  "Fuzzy Finder" \
-        TRUE "bash-completion"       "Bash Autocompletion" \
-        TRUE "cifs-utils"            "Windows Share Support" \
         FALSE "arduino"              "Arduino IDE" \
         FALSE "bluefish"             "Web Editor" \
         FALSE "codeblocks"           "C++ IDE" \
         FALSE "libreoffice"          "Office Suite" \
         FALSE "gimp"                 "Image Editor" \
-        FALSE "dia"                  "Diagram Editor" \
+        FALSE "drawio"               "Draw.io Diagram Editor (Flatpak)" \
         FALSE "inkscape"             "Vector Graphics Editor" \
         FALSE "fritzing"             "Electronics Tool" \
         FALSE "filezilla"            "FTP Client" \
@@ -216,9 +220,8 @@ install_apps()
         FALSE "handbrake"            "Video Converter" \
         FALSE "obs-studio"           "Streaming Software" \
         FALSE "wine"                 "Wine Compatibility Layer (Multi-distro mapped)" \
-        TRUE "grub-customizer"       "GRUB GUI Tool (Debian/Ubuntu only)" \
+        FALSE "grub-customizer"      "GRUB GUI Tool (Debian/Ubuntu only)" \
         FALSE "freefilesync"         "Folder Sync Tool" \
-        FALSE "torbrowser-launcher"  "Tor Browser Installer" \
         FALSE "sensors"              "Sensor Monitor (Multi-distro mapped)" \
         FALSE "nvme-cli"             "NVMe Tools" \
         FALSE "cmatrix"              "Matrix Screensaver" \
@@ -266,11 +269,73 @@ install_apps()
     print_info "Syncing package repositories..."
     $PM_UPDATE
 
+    if [ "$OS_FAMILY" = "rhel" ]; then
+        PM_INSTALL="dnf install -y --skip-broken"
+        print_info "RHEL/Rocky system detected. Ensuring EPEL and CRB repositories..."
+        $PM_INSTALL epel-release
+        if command -v crb >/dev/null 2>&1; then
+            crb enable >/dev/null 2>&1
+        elif command -v dnf-config-manager >/dev/null 2>&1; then
+            dnf-config-manager --set-enabled crb >/dev/null 2>&1
+        fi
+        sudo dnf install --nogpgcheck https://mirrors.rpmfusion.org/free/el/rpmfusion-free-release-$(rpm -E %rhel).noarch.rpm -y
+        sudo dnf install --nogpgcheck https://mirrors.rpmfusion.org/nonfree/el/rpmfusion-nonfree-release-$(rpm -E %rhel).noarch.rpm -y
+        $PM_UPDATE
+    fi
+
     STANDARD_APPS=$(translate_packages "$SELECTED_APPS")
 
     if [ -n "$(echo "$STANDARD_APPS" | tr -d ' ')" ]; then
-        print_info "Installing standard applications..."
+        print_info "Installing standard applications in batch mode..."
         $PM_INSTALL $STANDARD_APPS
+
+        if [ $? -ne 0 ]; then
+            print_warning "Batch installation failed. Attempting one-by-one installation..."
+            for pkg in $STANDARD_APPS; do
+                print_info "Attempting to install: $pkg"
+                $PM_INSTALL "$pkg"
+            done
+        fi
+    fi
+
+    FLATPAK_APPS=""
+    for app in $(echo "$SELECTED_APPS" | tr '|' ' '); do
+        if [ "$app" = "drawio" ]; then
+            FLATPAK_APPS="$FLATPAK_APPS drawio"
+        fi
+        case "$app" in
+            "libreoffice"|"gimp"|"fritzing"|"filezilla"|"qbittorrent"|"soundkonverter"|"audacity"|"audacious"|"kdenlive"|"obs-studio"|"torbrowser-launcher")
+                if [ "$OS_FAMILY" = "rhel" ]; then
+                    FLATPAK_APPS="$FLATPAK_APPS $app"
+                fi
+                ;;
+        esac
+    done
+
+    if [ -n "$(echo "$FLATPAK_APPS" | tr -d ' ')" ]; then
+        print_info "Desktop apps detected. Ensuring flatpack support..."
+        $PM_INSTALL flatpak
+        flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
+
+        for f_app in $FLATPAK_APPS; do
+            case "$f_app" in
+                "libreoffice") f_id="org.libreoffice.LibreOffice" ;;
+                "gimp") f_id="org.gimp.GIMP" ;;
+                "drawio") f_id="com.jgraph.drawio.desktop" ;;
+                "fritzing") f_id="org.fritzing.Fritzing" ;;
+                "filezilla") f_id="org.filezillaproject.Filezilla" ;;
+                "qbittorrent") f_id="org.qbittorrent.qBittorrent" ;;
+                "soundkonverter") f_id="com.github.dfaust.soundkonverter" ;;
+                "audacity") f_id="org.audacityteam.Audacity" ;;
+                "audacious") f_id="org.atheme.audacious" ;;
+                "kdenlive") f_id="org.kde.kdenlive" ;;
+                "obs-studio") f_id="com.obsproject.Studio" ;;
+                "torbrowser-launcher") f_id="com.github.micahflee.torbrowser-launcher" ;;
+                *) f_id="$f_app" ;;
+            esac
+            print_info "Installing $f_app via Flatpak Flathub..."
+            flatpak install -y flathub "$f_id"
+        done
     fi
 
     if echo "$PADDED_APPS" | grep -q "|docker|"; then
