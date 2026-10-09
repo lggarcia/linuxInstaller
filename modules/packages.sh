@@ -176,6 +176,7 @@ install_apps()
         TRUE "cmake"                 "Cross-Platform Build Tool" \
         TRUE "gparted"               "Partition Editor" \
         TRUE "gnome-disk-utility"    "GNOME Disk Utility" \
+        TRUE "f3"                    "Disk Integrity Test" \
         TRUE "p7zip"                 "7-Zip Compression (Multi-distro mapped)" \
         TRUE "lsb"                   "LSB Release Info (Multi-distro mapped)" \
         TRUE "python3"               "Python 3" \
@@ -189,13 +190,14 @@ install_apps()
         TRUE "dnsutils"              "DNS Utilities (Multi-distro mapped)" \
         TRUE "net-tools"             "Network Tools" \
         TRUE "vlc"                   "VLC Media Player" \
-        TRUE "screen"                "Terminal Multiplexer" \
         TRUE "bat"                   "Cat Clone with Syntax Highlighting" \
         TRUE "zoxide"                "Smarter cd" \
         TRUE "trash-cli"             "Trash Manager" \
         TRUE "fzf"                   "Fuzzy Finder" \
         TRUE "bash-completion"       "Bash Autocompletion" \
         TRUE "cifs-utils"            "Windows Share Support" \
+        TRUE "tmux"                  "Terminal Multiplexer" \
+        FALSE "screen"               "Terminal Multiplexer" \
         FALSE "fail2ban"             "Security: Ban Brute Force (Requires Config)" \
         FALSE "endlessh"             "Honeypot for SSH (Requires Config)" \
         FALSE "ufw"                  "Uncomplicated Firewall (Debian/Ubuntu)" \
