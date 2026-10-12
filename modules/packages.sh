@@ -264,6 +264,36 @@ install_apps()
         fi
     fi
 
+    # fzf config
+    CURRENT_SHELL=$(basename "$REAL_SHELL")
+    FZF_BINDING_FILE=""
+    if [ "$CURRENT_SHELL" = "bash" ]; then
+        for path in "/usr/share/doc/fzf/examples/key-bindings.bash" "/usr/share/fzf/key-bindings.bash" "/etc/fzf.bash"; do
+            if [ -f "$path" ]; then
+                FZF_BINDING_FILE="$path"
+                break
+            fi
+        done
+    elif [ "$CURRENT_SHELL" = "zsh" ]; then
+        for path in "/usr/share/doc/fzf/examples/key-bindings.zsh" "/usr/share/fzf/key-bindings.zsh" "/etc/fzf.zsh"; do
+            if [ -f "$path" ]; then
+                FZF_BINDING_FILE="$path"
+                break
+            fi
+        done
+    fi
+
+    # Se encontrou o arquivo de bindings para o shell atual, injeta de forma limpa
+    if [ -n "$FZF_BINDING_FILE" ]; then
+        cat <<EOF >> "$CONFIG_FILE"
+# FZF Key Bindings and Completion ($CURRENT_SHELL)
+[ -f "$FZF_BINDING_FILE" ] && source "$FZF_BINDING_FILE"
+EOF
+        print_success "FZF key-bindings integrated for $CURRENT_SHELL."
+    else
+        print_warning "FZF key-bindings file not found for shell: $CURRENT_SHELL. Skipping integration."
+    fi
+
     # Fail2Ban Configs
     F2B_BANTIME="1h"
     F2B_MAXRETRY="5"
