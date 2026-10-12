@@ -195,6 +195,7 @@ install_apps()
         TRUE "trash-cli"             "Trash Manager" \
         TRUE "fzf"                   "Fuzzy Finder" \
         TRUE "thefuck"               "CLI correction tool" \
+        TRUE "shellcheck"            "script checker for CLI" \
         TRUE "bash-completion"       "Bash Autocompletion" \
         TRUE "cifs-utils"            "Windows Share Support" \
         TRUE "tmux"                  "Terminal Multiplexer" \
