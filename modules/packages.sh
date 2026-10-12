@@ -194,6 +194,7 @@ install_apps()
         TRUE "zoxide"                "Smarter cd" \
         TRUE "trash-cli"             "Trash Manager" \
         TRUE "fzf"                   "Fuzzy Finder" \
+        TRUE "thefuck"               "CLI correction tool" \
         TRUE "bash-completion"       "Bash Autocompletion" \
         TRUE "cifs-utils"            "Windows Share Support" \
         TRUE "tmux"                  "Terminal Multiplexer" \
@@ -208,6 +209,7 @@ install_apps()
         FALSE "codeblocks"           "C++ IDE" \
         FALSE "libreoffice"          "Office Suite" \
         FALSE "gimp"                 "Image Editor" \
+        FALSE "flameshot"            "Screenshot tool" \
         FALSE "drawio"               "Draw.io Diagram Editor (Flatpak)" \
         FALSE "inkscape"             "Vector Graphics Editor" \
         FALSE "fritzing"             "Electronics Tool" \
@@ -235,6 +237,32 @@ install_apps()
     fi
 
     PADDED_APPS="|${SELECTED_APPS}|"
+
+    # thefuck config
+    if echo "$PADDED_APPS" | grep -q "|thefuck|"; then
+        print_info "Configuring 'thefuck' alias in user shell profile..."
+        CURRENT_SHELL=$(basename "$REAL_SHELL")
+        TARGET_PROFILE=""
+        case "$CURRENT_SHELL" in
+            bash) TARGET_PROFILE="$REAL_HOME/.bashrc" ;;
+            zsh)  TARGET_PROFILE="$REAL_HOME/.zshrc" ;;
+            ksh)  TARGET_PROFILE="$REAL_HOME/.kshrc" ;;
+            *)    TARGET_PROFILE="$REAL_HOME/.profile" ;;
+        esac
+
+        if [ -f "$TARGET_PROFILE" ]; then
+            if ! grep -q "thefuck --alias" "$TARGET_PROFILE"; then
+                echo "" >> "$TARGET_PROFILE"
+                echo "# TheFuck CLI correction tool" >> "$TARGET_PROFILE"
+                echo 'eval "$(thefuck --alias)"' >> "$TARGET_PROFILE"
+                print_success "'thefuck' successfully configured in $TARGET_PROFILE."
+            else
+                print_info "'thefuck' configuration already present in $TARGET_PROFILE."
+            fi
+        else
+            print_warning "Shell profile $TARGET_PROFILE not found. Skipping 'thefuck' auto-configuration."
+        fi
+    fi
 
     # Fail2Ban Configs
     F2B_BANTIME="1h"
